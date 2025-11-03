@@ -14,7 +14,7 @@ export class MySQLStorage implements IStorage {
     this.pool = mysql.createPool({
       host: process.env.DB_HOST || "localhost",
       user: process.env.DB_USER || "root",
-      password: process.env.DB_PASSWORD || "",
+      password: process.env.DB_PASSWORD || "Password",
       database: process.env.DB_NAME || "ai_legal_advisor",
       waitForConnections: true,
       connectionLimit: 10,
