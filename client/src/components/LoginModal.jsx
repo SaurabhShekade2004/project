@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Scale, Mail, Lock } from "lucide-react";
+import { Scale, Mail, Lock, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function LoginModal({ open, onOpenChange, onLogin }) {
   const [loginEmail, setLoginEmail] = useState("");
@@ -13,77 +14,71 @@ export default function LoginModal({ open, onOpenChange, onLogin }) {
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [passwordErrors, setPasswordErrors] = useState([]);
   const { toast } = useToast();
 
-  const handleLogin = (e) => {
-    e.preventDefault();
-    
-    // todo: remove mock functionality - replace with real authentication
-    if (!loginEmail || !loginPassword) {
-      toast({
-        title: "Error",
-        description: "Please fill in all fields",
-        variant: "destructive",
-      });
-      return;
+  const validatePassword = (password) => {
+    const errors = [];
+    if (password.length < 8) {
+      errors.push("At least 8 characters");
     }
-
-    if (!loginEmail.includes("@")) {
-      toast({
-        title: "Invalid Email",
-        description: "Please enter a valid email address",
-        variant: "destructive",
-      });
-      return;
+    if (!/[A-Z]/.test(password)) {
+      errors.push("One uppercase letter");
     }
-
-    if (loginPassword.length < 8) {
-      toast({
-        title: "Weak Password",
-        description: "Password must be at least 8 characters long",
-        variant: "destructive",
-      });
-      return;
+    if (!/[a-z]/.test(password)) {
+      errors.push("One lowercase letter");
     }
-
-    // Mock successful login
-    onLogin(loginEmail);
-    toast({
-      title: "Success",
-      description: "Logged in successfully!",
-    });
+    if (!/[0-9]/.test(password)) {
+      errors.push("One number");
+    }
+    if (!/[^A-Za-z0-9]/.test(password)) {
+      errors.push("One special character");
+    }
+    return errors;
   };
 
-  const handleSignup = (e) => {
+  const handlePasswordChange = (password) => {
+    setSignupPassword(password);
+    const errors = validatePassword(password);
+    setPasswordErrors(errors);
+  };
+
+  const handleLogin = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
 
-    // todo: remove mock functionality - replace with real authentication
-    if (!signupEmail || !signupPassword || !confirmPassword) {
+    try {
+      const result = await apiRequest("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: loginEmail,
+          password: loginPassword,
+        }),
+      });
+
+      onLogin(result.email);
       toast({
-        title: "Error",
-        description: "Please fill in all fields",
+        title: "Success",
+        description: "Logged in successfully!",
+      });
+      onOpenChange(false);
+    } catch (error) {
+      toast({
+        title: "Login Failed",
+        description: error.message || "Invalid email or password",
         variant: "destructive",
       });
-      return;
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    if (!signupEmail.includes("@")) {
-      toast({
-        title: "Invalid Email",
-        description: "Please enter a valid email address",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (signupPassword.length < 8) {
-      toast({
-        title: "Weak Password",
-        description: "Password must be at least 8 characters long and include uppercase, lowercase, numbers, and special characters",
-        variant: "destructive",
-      });
-      return;
-    }
+  const handleSignup = async (e) => {
+    e.preventDefault();
 
     if (signupPassword !== confirmPassword) {
       toast({
@@ -94,12 +89,49 @@ export default function LoginModal({ open, onOpenChange, onLogin }) {
       return;
     }
 
-    // Mock successful signup
-    onLogin(signupEmail);
-    toast({
-      title: "Success",
-      description: "Account created successfully!",
-    });
+    if (passwordErrors.length > 0) {
+      toast({
+        title: "Weak Password",
+        description: "Please fix all password requirements",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const result = await apiRequest("/api/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: signupEmail,
+          password: signupPassword,
+        }),
+      });
+
+      toast({
+        title: "Success",
+        description: "Account created successfully! Please login.",
+      });
+      
+      // Switch to login tab
+      setLoginEmail(signupEmail);
+      setSignupEmail("");
+      setSignupPassword("");
+      setConfirmPassword("");
+      setPasswordErrors([]);
+    } catch (error) {
+      toast({
+        title: "Signup Failed",
+        description: error.message || "Failed to create account",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -123,17 +155,18 @@ export default function LoginModal({ open, onOpenChange, onLogin }) {
           <TabsContent value="login">
             <form onSubmit={handleLogin} className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="login-email">Username</Label>
+                <Label htmlFor="login-email">Email</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     id="login-email"
                     type="email"
-                    placeholder="Enter your username"
+                    placeholder="Enter your email"
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
                     className="pl-10"
                     data-testid="input-login-email"
+                    required
                   />
                 </div>
               </div>
@@ -150,12 +183,13 @@ export default function LoginModal({ open, onOpenChange, onLogin }) {
                     onChange={(e) => setLoginPassword(e.target.value)}
                     className="pl-10"
                     data-testid="input-login-password"
+                    required
                   />
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" size="lg" data-testid="button-login-submit">
-                Login
+              <Button type="submit" className="w-full" size="lg" disabled={isLoading} data-testid="button-login-submit">
+                {isLoading ? "Logging in..." : "Login"}
               </Button>
             </form>
           </TabsContent>
@@ -174,6 +208,7 @@ export default function LoginModal({ open, onOpenChange, onLogin }) {
                     onChange={(e) => setSignupEmail(e.target.value)}
                     className="pl-10"
                     data-testid="input-signup-email"
+                    required
                   />
                 </div>
               </div>
@@ -187,14 +222,35 @@ export default function LoginModal({ open, onOpenChange, onLogin }) {
                     type="password"
                     placeholder="Create a strong password"
                     value={signupPassword}
-                    onChange={(e) => setSignupPassword(e.target.value)}
+                    onChange={(e) => handlePasswordChange(e.target.value)}
                     className="pl-10"
                     data-testid="input-signup-password"
+                    required
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Must be at least 8 characters with uppercase, lowercase, numbers, and symbols
-                </p>
+                <div className="text-xs space-y-1 mt-2">
+                  <p className="text-muted-foreground font-medium">Password must contain:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { text: "8+ characters", valid: signupPassword.length >= 8 },
+                      { text: "Uppercase", valid: /[A-Z]/.test(signupPassword) },
+                      { text: "Lowercase", valid: /[a-z]/.test(signupPassword) },
+                      { text: "Number", valid: /[0-9]/.test(signupPassword) },
+                      { text: "Special char", valid: /[^A-Za-z0-9]/.test(signupPassword) },
+                    ].map((req, idx) => (
+                      <span
+                        key={idx}
+                        className={`px-2 py-0.5 rounded-md text-xs ${
+                          req.valid
+                            ? "bg-green-500/10 text-green-600 dark:text-green-400"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {req.text}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -209,12 +265,19 @@ export default function LoginModal({ open, onOpenChange, onLogin }) {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     className="pl-10"
                     data-testid="input-confirm-password"
+                    required
                   />
                 </div>
+                {confirmPassword && signupPassword !== confirmPassword && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    Passwords do not match
+                  </p>
+                )}
               </div>
 
-              <Button type="submit" className="w-full" size="lg" data-testid="button-signup-submit">
-                Sign Up
+              <Button type="submit" className="w-full" size="lg" disabled={isLoading || passwordErrors.length > 0 || signupPassword !== confirmPassword} data-testid="button-signup-submit">
+                {isLoading ? "Creating Account..." : "Sign Up"}
               </Button>
             </form>
           </TabsContent>
