@@ -1,39 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import Navbar from "@/components/Navbar";
 import AboutConstitution from "@/components/AboutConstitution";
 import Footer from "@/components/Footer";
 import LoginModal from "@/components/LoginModal";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function AboutConstitutionPage() {
   const [, setLocation] = useLocation();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [username, setUsername] = useState("");
+  const { isLoggedIn, email, logout, handleLogin } = useAuth();
 
-  useEffect(() => {
-    // todo: remove mock functionality - replace with real session check
-    const savedUser = localStorage.getItem("user");
-    if (savedUser) {
-      setIsLoggedIn(true);
-      setUsername(savedUser);
-    }
-  }, []);
-
-  const handleLogin = (email) => {
-    // todo: remove mock functionality - replace with real authentication
-    setIsLoggedIn(true);
-    setUsername(email);
-    localStorage.setItem("user", email);
-    setIsLoginModalOpen(false);
+  const handleLogoutClick = () => {
+    logout();
+    setLocation("/");
   };
 
-  const handleLogout = () => {
-    // todo: remove mock functionality - replace with real logout
-    setIsLoggedIn(false);
-    setUsername("");
-    localStorage.removeItem("user");
-    setLocation("/");
+  const handleLoginSuccess = (userData) => {
+    handleLogin(userData);
+    setIsLoginModalOpen(false);
   };
 
   const handleLoginClick = () => {
@@ -44,9 +29,9 @@ export default function AboutConstitutionPage() {
     <div className="min-h-screen bg-background">
       <Navbar
         isLoggedIn={isLoggedIn}
-        username={username}
+        username={email}
         onLoginClick={handleLoginClick}
-        onLogoutClick={handleLogout}
+        onLogoutClick={handleLogoutClick}
       />
 
       <div className="pt-16 md:pt-20">
@@ -58,7 +43,7 @@ export default function AboutConstitutionPage() {
       <LoginModal
         open={isLoginModalOpen}
         onOpenChange={setIsLoginModalOpen}
-        onLogin={handleLogin}
+        onLogin={handleLoginSuccess}
       />
     </div>
   );

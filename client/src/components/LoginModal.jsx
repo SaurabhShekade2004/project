@@ -60,12 +60,16 @@ export default function LoginModal({ open, onOpenChange, onLogin }) {
         }),
       });
 
-      onLogin(result.email);
+      onLogin(result);
       toast({
         title: "Success",
         description: "Logged in successfully!",
       });
       onOpenChange(false);
+      
+      // Reset form
+      setLoginEmail("");
+      setLoginPassword("");
     } catch (error) {
       toast({
         title: "Login Failed",

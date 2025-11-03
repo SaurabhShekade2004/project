@@ -3,38 +3,27 @@ import { useLocation } from "wouter";
 import Navbar from "@/components/Navbar";
 import ChatInterface from "@/components/ChatInterface";
 import LoginModal from "@/components/LoginModal";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function ChatPage() {
   const [, setLocation] = useLocation();
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [username, setUsername] = useState("");
+  const { isLoggedIn, email, logout, handleLogin, isLoading } = useAuth();
 
   useEffect(() => {
-    // todo: remove mock functionality - replace with real session check
-    const savedUser = localStorage.getItem("user");
-    if (savedUser) {
-      setIsLoggedIn(true);
-      setUsername(savedUser);
-    } else {
+    if (!isLoading && !isLoggedIn) {
       setIsLoginModalOpen(true);
     }
-  }, []);
+  }, [isLoggedIn, isLoading]);
 
-  const handleLogin = (email) => {
-    // todo: remove mock functionality - replace with real authentication
-    setIsLoggedIn(true);
-    setUsername(email);
-    localStorage.setItem("user", email);
-    setIsLoginModalOpen(false);
+  const handleLogoutClick = () => {
+    logout();
+    setLocation("/");
   };
 
-  const handleLogout = () => {
-    // todo: remove mock functionality - replace with real logout
-    setIsLoggedIn(false);
-    setUsername("");
-    localStorage.removeItem("user");
-    setLocation("/");
+  const handleLoginSuccess = (userData) => {
+    handleLogin(userData);
+    setIsLoginModalOpen(false);
   };
 
   const handleLoginClick = () => {
@@ -45,9 +34,9 @@ export default function ChatPage() {
     <div className="h-screen flex flex-col bg-background">
       <Navbar
         isLoggedIn={isLoggedIn}
-        username={username}
+        username={email}
         onLoginClick={handleLoginClick}
-        onLogoutClick={handleLogout}
+        onLogoutClick={handleLogoutClick}
       />
 
       <div className="flex-1 flex flex-col mt-16 md:mt-20">
@@ -71,7 +60,7 @@ export default function ChatPage() {
           }
           setIsLoginModalOpen(open);
         }}
-        onLogin={handleLogin}
+        onLogin={handleLoginSuccess}
       />
     </div>
   );
